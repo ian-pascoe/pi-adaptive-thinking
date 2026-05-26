@@ -122,6 +122,46 @@ describe("adaptiveThinking extension", () => {
     expect(pi.setThinkingLevel).not.toHaveBeenCalled();
   });
 
+  test("back-to-back state is tracked per tool call", async () => {
+    const { pi, tools, emit } = createPi();
+    adaptiveThinking(pi as never);
+    await emit("session_start", { reason: "startup" }, createCtx());
+
+    await emit(
+      "tool_call",
+      { toolName: "set_reasoning_effort", toolCallId: "first", input: {} },
+      createCtx(),
+    );
+    await emit(
+      "tool_call",
+      { toolName: "set_reasoning_effort", toolCallId: "second", input: {} },
+      createCtx(),
+    );
+
+    const firstResult = await tools[0].execute(
+      "first",
+      { level: "high", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
+    vi.mocked(pi.setThinkingLevel).mockClear();
+
+    const secondResult = await tools[0].execute(
+      "second",
+      { level: "low", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
+
+    expect(firstResult.content[0].text).toBe("Reasoning effort set to high");
+    expect(secondResult.content[0].text).toBe(
+      "Reasoning effort change skipped because the previous tool call was also set_reasoning_effort. Reassess after another tool call or new user input.",
+    );
+    expect(pi.setThinkingLevel).not.toHaveBeenCalled();
+  });
+
   test("intervening tool call allows another reasoning change", async () => {
     const { pi, tools, emit } = createPi();
     adaptiveThinking(pi as never);

@@ -25,7 +25,7 @@ type RuntimeState = {
   persistedLevel?: PiThinkingLevel;
   temporaryResetLevel?: PiThinkingLevel;
   lastToolCallWasReasoningTool?: boolean;
-  currentReasoningToolCallIsBackToBack?: boolean;
+  reasoningToolCallBackToBackById: Map<string, boolean>;
 };
 
 const ToolParameters = Type.Object(
@@ -198,10 +198,12 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
       if (!state) return;
 
       if (event.toolName === state.config.toolName) {
-        state.currentReasoningToolCallIsBackToBack = state.lastToolCallWasReasoningTool ?? false;
+        state.reasoningToolCallBackToBackById.set(
+          event.toolCallId,
+          state.lastToolCallWasReasoningTool ?? false,
+        );
         state.lastToolCallWasReasoningTool = true;
       } else {
-        state.currentReasoningToolCallIsBackToBack = false;
         state.lastToolCallWasReasoningTool = false;
       }
     });
@@ -212,7 +214,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
       await resetTemporaryLevel(ctx);
       if (!runtime) return;
       runtime.lastToolCallWasReasoningTool = false;
-      runtime.currentReasoningToolCallIsBackToBack = false;
+      runtime.reasoningToolCallBackToBackById.clear();
     });
   };
 
@@ -224,7 +226,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
     if (!state) return { systemPrompt: event.systemPrompt };
 
     state.lastToolCallWasReasoningTool = false;
-    state.currentReasoningToolCallIsBackToBack = false;
+    state.reasoningToolCallBackToBackById.clear();
 
     const currentLevel = state.currentLevel ?? pi.getThinkingLevel();
     if (isThinkingLevel(currentLevel)) state.currentLevel = currentLevel;
@@ -272,7 +274,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
     }
 
     const initialLevel = pi.getThinkingLevel();
-    runtime = { config };
+    runtime = { config, reasoningToolCallBackToBackById: new Map() };
     if (isThinkingLevel(initialLevel)) runtime.currentLevel = initialLevel;
 
     pi.registerTool({
@@ -284,7 +286,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
         `Use ${config.toolName} to change reasoning effort when task complexity justifies a different thinking level.`,
       ],
       parameters: ToolParameters,
-      execute: async (_toolCallId, params: ToolParameters, _signal, _onUpdate, ctx) => {
+      execute: async (toolCallId, params: ToolParameters, _signal, _onUpdate, ctx) => {
         const state = runtime;
         if (!state) return textResult("Adaptive Thinking is not enabled for this session.");
 
@@ -302,7 +304,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
           return textResult(`Reasoning effort is already ${level}; no change made.`);
         }
 
-        if (state.currentReasoningToolCallIsBackToBack) {
+        if (state.reasoningToolCallBackToBackById.get(toolCallId) ?? false) {
           return textResult(
             `Reasoning effort change skipped because the previous tool call was also ${state.config.toolName}. Reassess after another tool call or new user input.`,
           );
