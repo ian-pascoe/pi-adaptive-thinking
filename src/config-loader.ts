@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { parseConfig, type AdaptiveThinkingConfig } from "./config.js";
+import { parseConfig, type AdaptiveThinkingConfig } from "./config";
 
-export type { AdaptiveThinkingConfig } from "./config.js";
+export type { AdaptiveThinkingConfig } from "./config";
 
 export type LoadConfigOptions = {
   cwd: string;

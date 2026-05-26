@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { configDefaults, defaultSystemPrompt, parseConfig } from "./config.js";
+import { configDefaults, defaultSystemPrompt, parseConfig } from "./config";
 
 describe("parseConfig", () => {
   test("uses defaults when input is undefined", () => {
