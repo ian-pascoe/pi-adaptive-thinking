@@ -1,0 +1,68 @@
+{
+  "name": "pi-adaptive-thinking",
+  "version": "0.1.0",
+  "description": "Pi Adaptive Thinking extension",
+  "keywords": ["pi", "pi-package", "thinking", "reasoning", "adaptive-thinking"],
+  "homepage": "https://github.com/ian-pascoe/pi-adaptive-thinking#readme",
+  "bugs": { "url": "https://github.com/ian-pascoe/pi-adaptive-thinking/issues" },
+  "license": "MIT",
+  "author": "Ian Pascoe",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ian-pascoe/pi-adaptive-thinking.git"
+  },
+  "files": ["dist", "README.md"],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "pnpm run clean && pnpm run build:js && pnpm run build:types",
+    "build:js": "rolldown -c",
+    "build:types": "tsgo --project tsconfig.build.json --emitDeclarationOnly",
+    "build:watch": "rolldown -c -w",
+    "clean": "rm -rf dist",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "test": "vitest run",
+    "typecheck": "tsgo --noEmit",
+    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
+    "@types/node": "^25.9.1",
+    "@typescript/native-preview": "7.0.0-dev.20260526.1",
+    "husky": "^9.1.7",
+    "oxfmt": "^0.52.0",
+    "oxlint": "^1.67.0",
+    "rolldown": "1.0.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "packageManager": "pnpm@10.33.2",
+  "pi": {
+    "extensions": ["./dist/index.js"]
+  }
+}
