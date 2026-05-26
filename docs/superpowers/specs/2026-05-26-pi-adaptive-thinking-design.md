@@ -31,7 +31,7 @@ Out of scope:
 
 Use a Pi-native extension with parity semantics.
 
-The OpenCode plugin changes model variants by sending synthetic prompts. Pi has native thinking-level support, including `thinking_level_select` events and `pi.setThinkingLevel()`. The Pi version should therefore keep the OpenCode tool/config/prompt interface where useful, but implement actual changes through Pi APIs.
+The OpenCode plugin changes model variants by sending synthetic prompts. Pi has native thinking-level support, including `thinking_level_select` events, `pi.getThinkingLevel()`, and `pi.setThinkingLevel()`. The Pi version should therefore keep the OpenCode tool/config/prompt interface where useful, but implement actual changes through Pi APIs.
 
 This approach gives users familiar behavior while avoiding brittle OpenCode-specific assumptions.
 
@@ -84,7 +84,7 @@ Responsibilities:
 - Load config on `session_start`.
 - Register the configured tool if enabled.
 - Inject adaptive-thinking system guidance in `before_agent_start`.
-- Track current thinking level from `thinking_level_select`.
+- Track current thinking level from `pi.getThinkingLevel()` and `thinking_level_select`.
 - Call Pi's native thinking-level setter from the tool.
 - Restore temporary level changes after `agent_end`.
 
@@ -118,7 +118,7 @@ Semantics:
 
 When `persist: true`, set `persistedLevel` to the requested level and clear `temporaryResetLevel`.
 
-When `persist: false`, capture the reset level from `persistedLevel`, `currentLevel`, or Pi's current selected level when available. If the reset level differs from the requested level, store it in `temporaryResetLevel`.
+When `persist: false`, capture the reset level from `persistedLevel`, `currentLevel`, or `pi.getThinkingLevel()`. If the reset level differs from the requested level, store it in `temporaryResetLevel`.
 
 On `agent_end`, if `temporaryResetLevel` exists, restore it with `pi.setThinkingLevel()`, update `currentLevel`, and clear `temporaryResetLevel` only after a successful reset.
 
@@ -146,11 +146,13 @@ The tool should use TypeBox schemas, following Pi extension conventions.
 
 ## Valid Level Resolution
 
-The extension should prefer Pi-native available-level information if exposed by the current Pi API. If Pi exposes selected model thinking levels through context/model metadata, use that as the authoritative list.
+Pi's public extension API exposes `pi.getThinkingLevel()` and `pi.setThinkingLevel(level)`. The setter clamps to model capabilities and emits `thinking_level_select`. The extension API does not currently expose `AgentSession.getAvailableThinkingLevels()` directly.
 
-If only a setter/event interface is available, the implementation should use a conservative fallback list matching common Pi thinking levels and keep the code isolated so this can be replaced with a native resolver later.
+For valid-level discovery, use the current `ctx.model` plus `@earendil-works/pi-ai`'s `getSupportedThinkingLevels(model)` helper. Pi model metadata uses `thinkingLevelMap` with keys `off`, `minimal`, `low`, `medium`, `high`, and `xhigh`; `null` marks unsupported levels. If `ctx.model` is unavailable, fall back to the full Pi level list: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`.
 
-The system prompt should include known valid levels when available.
+The tool should validate against the discovered list before calling `pi.setThinkingLevel()`. The setter may still clamp internally on model changes; `thinking_level_select` should remain the source of truth after changes.
+
+The system prompt should include the discovered valid levels.
 
 ## System Prompt Injection
 
@@ -206,6 +208,18 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
+
+## Research Findings
+
+Confirmed Pi APIs and docs:
+
+- `pi.getThinkingLevel()` returns the current level.
+- `pi.setThinkingLevel(level)` sets the level, clamps to model capabilities, records the change only if it actually changes, and emits `thinking_level_select`.
+- `thinking_level_select` carries `level` and `previousLevel`.
+- Pi thinking levels are `off`, `minimal`, `low`, `medium`, `high`, and `xhigh`.
+- Model metadata uses `thinkingLevelMap`; omitted keys are supported with default provider mapping, and `null` hides/skips unsupported levels.
+- `@earendil-works/pi-ai` exports `getSupportedThinkingLevels(model)` and `clampThinkingLevel(model, level)`.
+- `ctx.model` is available to extension handlers; `ctx.modelRegistry` can find models, but current-model metadata is already enough for level discovery.
 
 ## Implementation Notes
 
