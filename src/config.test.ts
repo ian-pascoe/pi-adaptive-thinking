@@ -21,8 +21,8 @@ describe("parseConfig", () => {
     expect(() => parseConfig({ unknown: true })).toThrow();
   });
 
-  test("default prompt requires active reasoning management", () => {
-    expect(defaultSystemPrompt).toContain("manage reasoning effort actively");
+  test("default prompt requires active thinking-level management", () => {
+    expect(defaultSystemPrompt).toContain("manage thinking level actively");
     expect(defaultSystemPrompt).toContain("NEVER leave the current level unchanged by inertia");
   });
 });

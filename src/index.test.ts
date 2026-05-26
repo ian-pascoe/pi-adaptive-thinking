@@ -46,7 +46,7 @@ describe("adaptiveThinking extension", () => {
 
     await emit("session_start", { reason: "startup" }, createCtx());
 
-    expect(tools[0].name).toBe("set_reasoning_effort");
+    expect(tools[0].name).toBe("set_thinking_level");
 
     const result = await emit(
       "before_agent_start",
@@ -55,16 +55,16 @@ describe("adaptiveThinking extension", () => {
     );
 
     expect(result.systemPrompt).toContain("Base prompt");
-    expect(result.systemPrompt).toContain("manage reasoning effort actively");
-    expect(result.systemPrompt).toContain("Current reasoning effort level: medium");
+    expect(result.systemPrompt).toContain("manage thinking level actively");
+    expect(result.systemPrompt).toContain("Current thinking level: medium");
     expect(result.systemPrompt).toContain(
-      "Valid reasoning effort levels for this session: off, minimal, low, medium, high, xhigh",
+      "Valid thinking levels for this session: off, minimal, low, medium, high, xhigh",
     );
-    expect(result.systemPrompt).toContain("set_reasoning_effort");
+    expect(result.systemPrompt).toContain("set_thinking_level");
     expect(result.systemPrompt).toContain(
-      "Do not call set_reasoning_effort if the current reasoning effort already matches the target level",
+      "Do not call set_thinking_level if the current thinking level already matches the target level",
     );
-    expect(result.systemPrompt).toContain("Do not call set_reasoning_effort twice in a row");
+    expect(result.systemPrompt).toContain("Do not call set_thinking_level twice in a row");
   });
 
   test("same-level tool call is a no-op", async () => {
@@ -80,7 +80,7 @@ describe("adaptiveThinking extension", () => {
       createCtx(),
     );
 
-    expect(result.content[0].text).toBe("Reasoning effort is already medium; no change made.");
+    expect(result.content[0].text).toBe("Thinking level is already medium; no change made.");
     expect(pi.setThinkingLevel).not.toHaveBeenCalled();
   });
 
@@ -91,7 +91,7 @@ describe("adaptiveThinking extension", () => {
 
     await emit(
       "tool_call",
-      { toolName: "set_reasoning_effort", toolCallId: "first", input: {} },
+      { toolName: "set_thinking_level", toolCallId: "first", input: {} },
       createCtx(),
     );
     await tools[0].execute(
@@ -105,7 +105,7 @@ describe("adaptiveThinking extension", () => {
 
     await emit(
       "tool_call",
-      { toolName: "set_reasoning_effort", toolCallId: "second", input: {} },
+      { toolName: "set_thinking_level", toolCallId: "second", input: {} },
       createCtx(),
     );
     const result = await tools[0].execute(
@@ -117,7 +117,7 @@ describe("adaptiveThinking extension", () => {
     );
 
     expect(result.content[0].text).toBe(
-      "Reasoning effort change skipped because the previous tool call was also set_reasoning_effort. Reassess after another tool call or new user input.",
+      "Thinking level change skipped because the previous tool call was also set_thinking_level. Reassess after another tool call or new user input.",
     );
     expect(pi.setThinkingLevel).not.toHaveBeenCalled();
   });
@@ -129,12 +129,12 @@ describe("adaptiveThinking extension", () => {
 
     await emit(
       "tool_call",
-      { toolName: "set_reasoning_effort", toolCallId: "first", input: {} },
+      { toolName: "set_thinking_level", toolCallId: "first", input: {} },
       createCtx(),
     );
     await emit(
       "tool_call",
-      { toolName: "set_reasoning_effort", toolCallId: "second", input: {} },
+      { toolName: "set_thinking_level", toolCallId: "second", input: {} },
       createCtx(),
     );
 
@@ -155,9 +155,9 @@ describe("adaptiveThinking extension", () => {
       createCtx(),
     );
 
-    expect(firstResult.content[0].text).toBe("Reasoning effort set to high");
+    expect(firstResult.content[0].text).toBe("Thinking level set to high");
     expect(secondResult.content[0].text).toBe(
-      "Reasoning effort change skipped because the previous tool call was also set_reasoning_effort. Reassess after another tool call or new user input.",
+      "Thinking level change skipped because the previous tool call was also set_thinking_level. Reassess after another tool call or new user input.",
     );
     expect(pi.setThinkingLevel).not.toHaveBeenCalled();
   });
@@ -169,7 +169,7 @@ describe("adaptiveThinking extension", () => {
 
     await emit(
       "tool_call",
-      { toolName: "set_reasoning_effort", toolCallId: "first", input: {} },
+      { toolName: "set_thinking_level", toolCallId: "first", input: {} },
       createCtx(),
     );
     await tools[0].execute(
@@ -188,7 +188,7 @@ describe("adaptiveThinking extension", () => {
     );
     await emit(
       "tool_call",
-      { toolName: "set_reasoning_effort", toolCallId: "second", input: {} },
+      { toolName: "set_thinking_level", toolCallId: "second", input: {} },
       createCtx(),
     );
     const result = await tools[0].execute(
@@ -199,7 +199,7 @@ describe("adaptiveThinking extension", () => {
       createCtx(),
     );
 
-    expect(result.content[0].text).toBe("Reasoning effort set to low");
+    expect(result.content[0].text).toBe("Thinking level set to low");
     expect(pi.setThinkingLevel).toHaveBeenCalledWith("low");
   });
 
@@ -216,7 +216,7 @@ describe("adaptiveThinking extension", () => {
       createCtx(),
     );
 
-    expect(result.content[0].text).toBe("Reasoning effort set to high");
+    expect(result.content[0].text).toBe("Thinking level set to high");
     expect(pi.setThinkingLevel).toHaveBeenCalledWith("high");
 
     vi.mocked(pi.setThinkingLevel).mockClear();
@@ -280,7 +280,7 @@ describe("adaptiveThinking extension", () => {
       createCtx(),
     );
 
-    expect(result.content[0].text).toBe("Reasoning effort set to high");
+    expect(result.content[0].text).toBe("Thinking level set to high");
     expect(pi.setThinkingLevel).toHaveBeenCalledWith("high");
 
     await emit("agent_end", {}, createCtx());
@@ -318,7 +318,7 @@ describe("adaptiveThinking extension", () => {
       createCtx(),
     );
 
-    expect(result.content[0].text).toContain("Invalid reasoning effort level: turbo");
+    expect(result.content[0].text).toContain("Invalid thinking level: turbo");
     expect(pi.setThinkingLevel).not.toHaveBeenCalled();
   });
 });

@@ -33,7 +33,7 @@ const ToolParameters = Type.Object(
     level: Type.String({
       minLength: 1,
       description:
-        "The level of reasoning effort to apply. Higher levels may improve hard-task quality but may take more time and resources.",
+        "The Pi thinking level to apply. Higher levels may improve hard-task quality but may take more time and resources.",
     }),
     persist: Type.Optional(
       Type.Boolean({
@@ -171,11 +171,11 @@ const formatGuidance = (
   return (
     config.systemPrompt.trim() +
     " " +
-    (currentLevel ? `Current reasoning effort level: ${currentLevel}. ` : "") +
-    `Valid reasoning effort levels for this session: ${validLevels.join(", ")}. ` +
-    `To change your reasoning effort, use the \`${config.toolName}\` tool with one of the valid levels. ` +
+    (currentLevel ? `Current thinking level: ${currentLevel}. ` : "") +
+    `Valid thinking levels for this session: ${validLevels.join(", ")}. ` +
+    `To change the thinking level, use the \`${config.toolName}\` tool with one of the valid levels. ` +
     "Only call it when the task complexity justifies changing levels. " +
-    `Do not call ${config.toolName} if the current reasoning effort already matches the target level. ` +
+    `Do not call ${config.toolName} if the current thinking level already matches the target level. ` +
     `Do not call ${config.toolName} twice in a row; reassess only after new evidence from other tool calls or user input.`
   );
 };
@@ -250,12 +250,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
       state.currentLevel = resetLevel;
       delete state.temporaryResetLevel;
     } catch (error) {
-      notify(
-        ctx,
-        "error",
-        `Failed to reset reasoning effort: ${errorMessage(error)}`,
-        state.config,
-      );
+      notify(ctx, "error", `Failed to reset thinking level: ${errorMessage(error)}`, state.config);
     }
   };
 
@@ -279,11 +274,11 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
 
     pi.registerTool({
       name: config.toolName,
-      label: "Set Reasoning Effort",
+      label: "Set Thinking Level",
       description: config.toolDescription,
-      promptSnippet: "Set the current reasoning effort / thinking level.",
+      promptSnippet: "Set the current Pi thinking level.",
       promptGuidelines: [
-        `Use ${config.toolName} to change reasoning effort when task complexity justifies a different thinking level.`,
+        `Use ${config.toolName} to change the thinking level when task complexity justifies a different level.`,
       ],
       parameters: ToolParameters,
       execute: async (toolCallId, params: ToolParameters, _signal, _onUpdate, ctx) => {
@@ -294,19 +289,19 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
         const validLevels = resolveSupportedThinkingLevels(ctx.model);
         if (!isThinkingLevel(level) || !validLevels.includes(level)) {
           return textResult(
-            `Invalid reasoning effort level: ${level}. Valid levels: ${validLevels.join(", ")}.`,
+            `Invalid thinking level: ${level}. Valid levels: ${validLevels.join(", ")}.`,
           );
         }
 
         const persist = params.persist ?? false;
         const currentLevel = state.currentLevel ?? pi.getThinkingLevel();
         if (currentLevel === level) {
-          return textResult(`Reasoning effort is already ${level}; no change made.`);
+          return textResult(`Thinking level is already ${level}; no change made.`);
         }
 
         if (state.reasoningToolCallBackToBackById.get(toolCallId) ?? false) {
           return textResult(
-            `Reasoning effort change skipped because the previous tool call was also ${state.config.toolName}. Reassess after another tool call or new user input.`,
+            `Thinking level change skipped because the previous tool call was also ${state.config.toolName}. Reassess after another tool call or new user input.`,
           );
         }
 
@@ -316,7 +311,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
         try {
           withSessionOnlyThinkingLevelChange(() => pi.setThinkingLevel(level));
         } catch (error) {
-          return textResult(`Failed to set reasoning effort: ${errorMessage(error)}`);
+          return textResult(`Failed to set thinking level: ${errorMessage(error)}`);
         }
 
         state.currentLevel = level;
@@ -329,7 +324,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
           delete state.temporaryResetLevel;
         }
 
-        return textResult(`Reasoning effort set to ${level}`);
+        return textResult(`Thinking level set to ${level}`);
       },
     });
 
