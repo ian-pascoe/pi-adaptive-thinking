@@ -1,10 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type * as z from "zod/v4";
-import { ConfigSchema } from "./config.js";
+import { parseConfig, type AdaptiveThinkingConfig } from "./config.js";
 
-export type AdaptiveThinkingConfig = z.infer<typeof ConfigSchema>;
+export type { AdaptiveThinkingConfig } from "./config.js";
 
 export type LoadConfigOptions = {
   cwd: string;
@@ -46,11 +45,11 @@ export const loadConfig = async ({
     }
 
     try {
-      return { success: true, source, config: ConfigSchema.parse(JSON.parse(raw)) };
+      return { success: true, source, config: parseConfig(JSON.parse(raw)) };
     } catch (error) {
       return invalidConfig(source, error);
     }
   }
 
-  return { success: true, config: ConfigSchema.parse(undefined) };
+  return { success: true, config: parseConfig(undefined) };
 };

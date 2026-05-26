@@ -1,4 +1,5 @@
-import * as z from "zod/v4";
+import { Type, type Static } from "typebox";
+import { Parse } from "typebox/schema";
 
 export const defaultSystemPrompt =
   "You MUST manage reasoning effort actively. " +
@@ -14,13 +15,20 @@ export const configDefaults = {
   systemPrompt: defaultSystemPrompt,
 };
 
-export const ConfigSchema = z
-  .object({
-    enabled: z.boolean().default(configDefaults.enabled),
-    quiet: z.boolean().default(configDefaults.quiet),
-    toolName: z.string().min(1).default(configDefaults.toolName),
-    toolDescription: z.string().min(1).default(configDefaults.toolDescription),
-    systemPrompt: z.string().min(1).default(configDefaults.systemPrompt),
-  })
-  .optional()
-  .default(configDefaults);
+export const ConfigSchema = Type.Object(
+  {
+    enabled: Type.Boolean(),
+    quiet: Type.Boolean(),
+    toolName: Type.String({ minLength: 1 }),
+    toolDescription: Type.String({ minLength: 1 }),
+    systemPrompt: Type.String({ minLength: 1 }),
+  },
+  { additionalProperties: false },
+);
+
+export type AdaptiveThinkingConfig = Static<typeof ConfigSchema>;
+
+export const parseConfig = (input: unknown): AdaptiveThinkingConfig => {
+  const merged = input === undefined ? configDefaults : { ...configDefaults, ...input };
+  return Parse(ConfigSchema, merged);
+};

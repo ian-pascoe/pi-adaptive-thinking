@@ -1,20 +1,24 @@
 import { describe, expect, test } from "vitest";
-import { ConfigSchema, configDefaults, defaultSystemPrompt } from "./config.js";
+import { configDefaults, defaultSystemPrompt, parseConfig } from "./config.js";
 
-describe("ConfigSchema", () => {
+describe("parseConfig", () => {
   test("uses defaults when input is undefined", () => {
-    expect(ConfigSchema.parse(undefined)).toEqual(configDefaults);
+    expect(parseConfig(undefined)).toEqual(configDefaults);
   });
 
   test("merges partial config with defaults", () => {
-    expect(ConfigSchema.parse({ toolName: "think_harder" })).toEqual({
+    expect(parseConfig({ toolName: "think_harder" })).toEqual({
       ...configDefaults,
       toolName: "think_harder",
     });
   });
 
   test("rejects invalid config types", () => {
-    expect(() => ConfigSchema.parse({ enabled: "yes" })).toThrow();
+    expect(() => parseConfig({ enabled: "yes" })).toThrow();
+  });
+
+  test("rejects additional config properties", () => {
+    expect(() => parseConfig({ unknown: true })).toThrow();
   });
 
   test("default prompt requires active reasoning management", () => {
