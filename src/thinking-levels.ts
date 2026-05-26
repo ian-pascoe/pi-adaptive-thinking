@@ -9,10 +9,12 @@ const levelSet = new Set<string>(fallbackThinkingLevels);
 
 export const isThinkingLevel = (level: string): level is PiThinkingLevel => levelSet.has(level);
 
-export const resolveSupportedThinkingLevels = (model: Model<Api> | undefined): PiThinkingLevel[] => {
+export const resolveSupportedThinkingLevels = (
+  model: Model<Api> | undefined,
+): PiThinkingLevel[] => {
   if (!model) return [...fallbackThinkingLevels];
 
-  return getSupportedThinkingLevels(model).filter((level: ModelThinkingLevel): level is PiThinkingLevel =>
-    isThinkingLevel(level),
+  return getSupportedThinkingLevels(model).filter(
+    (level: ModelThinkingLevel): level is PiThinkingLevel => isThinkingLevel(level),
   );
 };

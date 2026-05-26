@@ -7,4 +7,5 @@ export default defineConfig({
     format: "esm",
   },
   platform: "node",
+  external: ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "typebox"],
 });

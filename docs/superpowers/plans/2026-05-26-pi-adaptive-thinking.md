@@ -38,6 +38,7 @@ Create/modify these files:
 ### Task 1: Bootstrap Package Tooling
 
 **Files:**
+
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `tsconfig.json`
@@ -270,6 +271,7 @@ Expected: commit succeeds.
 ### Task 2: Implement Config Defaults and Loader
 
 **Files:**
+
 - Create: `src/config.ts`
 - Create: `src/config-loader.ts`
 - Create: `src/config.test.ts`
@@ -407,7 +409,10 @@ describe("loadConfig", () => {
   test("project config takes precedence over global config", async () => {
     const root = await mkdtemp(join(tmpdir(), "pi-adaptive-thinking-"));
     const { cwd, homeDir } = await makeDirs(root);
-    await writeFile(join(homeDir, ".pi", "agent", "adaptive-thinking.json"), JSON.stringify({ toolName: "global_tool" }));
+    await writeFile(
+      join(homeDir, ".pi", "agent", "adaptive-thinking.json"),
+      JSON.stringify({ toolName: "global_tool" }),
+    );
     const projectPath = join(cwd, ".pi", "adaptive-thinking.json");
     await writeFile(projectPath, JSON.stringify({ toolName: "project_tool" }));
 
@@ -530,6 +535,7 @@ git commit -m "feat: add adaptive thinking configuration"
 ### Task 3: Implement Thinking Level Helpers
 
 **Files:**
+
 - Create: `src/thinking-levels.ts`
 - Create: `src/thinking-levels.test.ts`
 
@@ -539,7 +545,11 @@ Write `src/thinking-levels.test.ts`:
 
 ```ts
 import { describe, expect, test } from "vitest";
-import { fallbackThinkingLevels, isThinkingLevel, resolveSupportedThinkingLevels } from "./thinking-levels.js";
+import {
+  fallbackThinkingLevels,
+  isThinkingLevel,
+  resolveSupportedThinkingLevels,
+} from "./thinking-levels.js";
 
 describe("thinking level helpers", () => {
   test("recognizes valid Pi thinking levels", () => {
@@ -607,11 +617,13 @@ const levelSet = new Set<string>(fallbackThinkingLevels);
 
 export const isThinkingLevel = (level: string): level is PiThinkingLevel => levelSet.has(level);
 
-export const resolveSupportedThinkingLevels = (model: Model<Api> | undefined): PiThinkingLevel[] => {
+export const resolveSupportedThinkingLevels = (
+  model: Model<Api> | undefined,
+): PiThinkingLevel[] => {
   if (!model) return [...fallbackThinkingLevels];
 
-  return getSupportedThinkingLevels(model).filter((level: ModelThinkingLevel): level is PiThinkingLevel =>
-    isThinkingLevel(level),
+  return getSupportedThinkingLevels(model).filter(
+    (level: ModelThinkingLevel): level is PiThinkingLevel => isThinkingLevel(level),
   );
 };
 ```
@@ -639,6 +651,7 @@ git commit -m "feat: add thinking level helpers"
 ### Task 4: Implement Extension Runtime and Tool
 
 **Files:**
+
 - Create: `src/index.ts`
 - Create: `src/index.test.ts`
 
@@ -703,7 +716,9 @@ describe("adaptiveThinking extension", () => {
     expect(result.systemPrompt).toContain("Base prompt");
     expect(result.systemPrompt).toContain("manage reasoning effort actively");
     expect(result.systemPrompt).toContain("Current reasoning effort level: medium");
-    expect(result.systemPrompt).toContain("Valid reasoning effort levels for this session: off, minimal, low, medium, high, xhigh");
+    expect(result.systemPrompt).toContain(
+      "Valid reasoning effort levels for this session: off, minimal, low, medium, high, xhigh",
+    );
     expect(result.systemPrompt).toContain("set_reasoning_effort");
   });
 
@@ -712,7 +727,13 @@ describe("adaptiveThinking extension", () => {
     adaptiveThinking(pi as never);
     await emit("session_start", { reason: "startup" }, createCtx());
 
-    const result = await tools[0].execute("tool-call", { level: "high", persist: true }, undefined, undefined, createCtx());
+    const result = await tools[0].execute(
+      "tool-call",
+      { level: "high", persist: true },
+      undefined,
+      undefined,
+      createCtx(),
+    );
 
     expect(result.content[0].text).toBe("Reasoning effort set to high");
     expect(pi.setThinkingLevel).toHaveBeenCalledWith("high");
@@ -727,7 +748,13 @@ describe("adaptiveThinking extension", () => {
     adaptiveThinking(pi as never);
     await emit("session_start", { reason: "startup" }, createCtx());
 
-    const result = await tools[0].execute("tool-call", { level: "high", persist: false }, undefined, undefined, createCtx());
+    const result = await tools[0].execute(
+      "tool-call",
+      { level: "high", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
 
     expect(result.content[0].text).toBe("Reasoning effort set to high");
     expect(pi.setThinkingLevel).toHaveBeenCalledWith("high");
@@ -742,7 +769,13 @@ describe("adaptiveThinking extension", () => {
     await emit("session_start", { reason: "startup" }, createCtx());
     await emit("thinking_level_select", { level: "low", previousLevel: "medium" }, createCtx());
 
-    await tools[0].execute("tool-call", { level: "high", persist: false }, undefined, undefined, createCtx());
+    await tools[0].execute(
+      "tool-call",
+      { level: "high", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
     await emit("agent_end", {}, createCtx());
 
     expect(pi.setThinkingLevel).toHaveBeenLastCalledWith("low");
@@ -753,7 +786,13 @@ describe("adaptiveThinking extension", () => {
     adaptiveThinking(pi as never);
     await emit("session_start", { reason: "startup" }, createCtx());
 
-    const result = await tools[0].execute("tool-call", { level: "turbo", persist: false }, undefined, undefined, createCtx());
+    const result = await tools[0].execute(
+      "tool-call",
+      { level: "turbo", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
 
     expect(result.content[0].text).toContain("Invalid reasoning effort level: turbo");
     expect(pi.setThinkingLevel).not.toHaveBeenCalled();
@@ -785,7 +824,11 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { loadConfig, type AdaptiveThinkingConfig } from "./config-loader.js";
-import { isThinkingLevel, resolveSupportedThinkingLevels, type PiThinkingLevel } from "./thinking-levels.js";
+import {
+  isThinkingLevel,
+  resolveSupportedThinkingLevels,
+  type PiThinkingLevel,
+} from "./thinking-levels.js";
 
 type NotifyType = "info" | "warning" | "error";
 
@@ -841,7 +884,11 @@ const appendSystemPromptBlock = (systemPrompt: string, block: string) => {
   return `${systemPrompt.trimEnd()}\n\n${trimmedBlock}`;
 };
 
-const formatGuidance = (config: AdaptiveThinkingConfig, currentLevel: string | undefined, validLevels: string[]) => {
+const formatGuidance = (
+  config: AdaptiveThinkingConfig,
+  currentLevel: string | undefined,
+  validLevels: string[],
+) => {
   return (
     config.systemPrompt.trim() +
     " " +
@@ -901,7 +948,12 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
       state.currentLevel = resetLevel;
       delete state.temporaryResetLevel;
     } catch (error) {
-      notify(ctx, "error", `Failed to reset reasoning effort: ${errorMessage(error)}`, state.config);
+      notify(
+        ctx,
+        "error",
+        `Failed to reset reasoning effort: ${errorMessage(error)}`,
+        state.config,
+      );
     }
   };
 
@@ -948,7 +1000,8 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
 
         const persist = params.persist ?? false;
         const currentLevel = state.currentLevel ?? pi.getThinkingLevel();
-        const resetLevel = state.persistedLevel ?? (isThinkingLevel(currentLevel) ? currentLevel : undefined);
+        const resetLevel =
+          state.persistedLevel ?? (isThinkingLevel(currentLevel) ? currentLevel : undefined);
 
         try {
           pi.setThinkingLevel(level);
@@ -1000,6 +1053,7 @@ git commit -m "feat: add adaptive thinking extension runtime"
 ### Task 5: Add README and Final Verification
 
 **Files:**
+
 - Create: `README.md`
 - Modify if needed: source/tests after verification fixes
 
@@ -1007,7 +1061,7 @@ git commit -m "feat: add adaptive thinking extension runtime"
 
 Write `README.md`:
 
-```md
+````md
 <div align="center">
 
 # pi-adaptive-thinking
@@ -1025,6 +1079,7 @@ It mirrors the user-facing behavior of `opencode-adaptive-thinking` while using 
 ```bash
 pi install npm:pi-adaptive-thinking
 ```
+````
 
 For local development:
 
@@ -1093,7 +1148,8 @@ Run all checks:
 ```bash
 pnpm verify
 ```
-```
+
+````
 
 - [ ] **Step 2: Run full verification**
 
@@ -1105,7 +1161,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-```
+````
 
 Expected: all commands pass.
 

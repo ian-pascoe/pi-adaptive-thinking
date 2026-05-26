@@ -131,7 +131,12 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
       state.currentLevel = resetLevel;
       delete state.temporaryResetLevel;
     } catch (error) {
-      notify(ctx, "error", `Failed to reset reasoning effort: ${errorMessage(error)}`, state.config);
+      notify(
+        ctx,
+        "error",
+        `Failed to reset reasoning effort: ${errorMessage(error)}`,
+        state.config,
+      );
     }
   };
 

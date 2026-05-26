@@ -2,16 +2,27 @@
   "name": "pi-adaptive-thinking",
   "version": "0.1.0",
   "description": "Pi Adaptive Thinking extension",
-  "keywords": ["pi", "pi-package", "thinking", "reasoning", "adaptive-thinking"],
+  "keywords": [
+    "adaptive-thinking",
+    "pi",
+    "pi-package",
+    "reasoning",
+    "thinking"
+  ],
   "homepage": "https://github.com/ian-pascoe/pi-adaptive-thinking#readme",
-  "bugs": { "url": "https://github.com/ian-pascoe/pi-adaptive-thinking/issues" },
+  "bugs": {
+    "url": "https://github.com/ian-pascoe/pi-adaptive-thinking/issues"
+  },
   "license": "MIT",
   "author": "Ian Pascoe",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ian-pascoe/pi-adaptive-thinking.git"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -63,6 +74,8 @@
   },
   "packageManager": "pnpm@10.33.2",
   "pi": {
-    "extensions": ["./dist/index.js"]
+    "extensions": [
+      "./dist/index.js"
+    ]
   }
 }
