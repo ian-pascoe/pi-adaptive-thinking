@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import adaptiveThinking from "./index.js";
+import adaptiveThinking from "./index";
 
 type Handler = (event: any, ctx: any) => any;
 

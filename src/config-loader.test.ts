@@ -3,8 +3,8 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { configDefaults } from "./config.js";
-import { loadConfig } from "./config-loader.js";
+import { configDefaults } from "./config";
+import { loadConfig } from "./config-loader";
 
 const makeDirs = async (root: string) => {
   const cwd = join(root, "project");

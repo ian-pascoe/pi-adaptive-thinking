@@ -1,6 +1,6 @@
 {
   "name": "pi-adaptive-thinking",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Pi Adaptive Thinking extension",
   "keywords": [
     "adaptive-thinking",
@@ -42,15 +42,18 @@
     "build:js": "rolldown -c",
     "build:types": "tsgo --project tsconfig.build.json --emitDeclarationOnly",
     "build:watch": "rolldown -c -w",
+    "changeset": "changeset",
     "clean": "rm -rf dist",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "prepare": "husky",
+    "release": "pnpm run build && changeset publish",
     "test": "vitest run",
     "typecheck": "tsgo --noEmit",
     "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
-    "prepare": "husky"
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",

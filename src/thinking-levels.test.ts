@@ -3,7 +3,7 @@ import {
   fallbackThinkingLevels,
   isThinkingLevel,
   resolveSupportedThinkingLevels,
-} from "./thinking-levels.js";
+} from "./thinking-levels";
 
 describe("thinking level helpers", () => {
   test("recognizes valid Pi thinking levels", () => {

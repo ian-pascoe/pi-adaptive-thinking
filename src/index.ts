@@ -6,12 +6,12 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
-import { loadConfig, type AdaptiveThinkingConfig } from "./config-loader.js";
+import { loadConfig, type AdaptiveThinkingConfig } from "./config-loader";
 import {
   isThinkingLevel,
   resolveSupportedThinkingLevels,
   type PiThinkingLevel,
-} from "./thinking-levels.js";
+} from "./thinking-levels";
 
 type NotifyType = "info" | "warning" | "error";
 
