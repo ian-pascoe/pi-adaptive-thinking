@@ -61,6 +61,106 @@ describe("adaptiveThinking extension", () => {
       "Valid reasoning effort levels for this session: off, minimal, low, medium, high, xhigh",
     );
     expect(result.systemPrompt).toContain("set_reasoning_effort");
+    expect(result.systemPrompt).toContain(
+      "Do not call set_reasoning_effort if the current reasoning effort already matches the target level",
+    );
+    expect(result.systemPrompt).toContain("Do not call set_reasoning_effort twice in a row");
+  });
+
+  test("same-level tool call is a no-op", async () => {
+    const { pi, tools, emit } = createPi();
+    adaptiveThinking(pi as never);
+    await emit("session_start", { reason: "startup" }, createCtx());
+
+    const result = await tools[0].execute(
+      "tool-call",
+      { level: "medium", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
+
+    expect(result.content[0].text).toBe("Reasoning effort is already medium; no change made.");
+    expect(pi.setThinkingLevel).not.toHaveBeenCalled();
+  });
+
+  test("back-to-back reasoning tool calls are no-ops", async () => {
+    const { pi, tools, emit } = createPi();
+    adaptiveThinking(pi as never);
+    await emit("session_start", { reason: "startup" }, createCtx());
+
+    await emit(
+      "tool_call",
+      { toolName: "set_reasoning_effort", toolCallId: "first", input: {} },
+      createCtx(),
+    );
+    await tools[0].execute(
+      "first",
+      { level: "high", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
+    vi.mocked(pi.setThinkingLevel).mockClear();
+
+    await emit(
+      "tool_call",
+      { toolName: "set_reasoning_effort", toolCallId: "second", input: {} },
+      createCtx(),
+    );
+    const result = await tools[0].execute(
+      "second",
+      { level: "low", persist: false },
+      undefined,
+      undefined,
+      createCtx(),
+    );
+
+    expect(result.content[0].text).toBe(
+      "Reasoning effort change skipped because the previous tool call was also set_reasoning_effort. Reassess after another tool call or new user input.",
+    );
+    expect(pi.setThinkingLevel).not.toHaveBeenCalled();
+  });
+
+  test("intervening tool call allows another reasoning change", async () => {
+    const { pi, tools, emit } = createPi();
+    adaptiveThinking(pi as never);
+    await emit("session_start", { reason: "startup" }, createCtx());
+
+    await emit(
+      "tool_call",
+      { toolName: "set_reasoning_effort", toolCallId: "first", input: {} },
+      createCtx(),
+    );
+    await tools[0].execute(
+      "first",
+      { level: "high", persist: true },
+      undefined,
+      undefined,
+      createCtx(),
+    );
+    vi.mocked(pi.setThinkingLevel).mockClear();
+
+    await emit(
+      "tool_call",
+      { toolName: "read", toolCallId: "read", input: { path: "src/index.ts" } },
+      createCtx(),
+    );
+    await emit(
+      "tool_call",
+      { toolName: "set_reasoning_effort", toolCallId: "second", input: {} },
+      createCtx(),
+    );
+    const result = await tools[0].execute(
+      "second",
+      { level: "low", persist: true },
+      undefined,
+      undefined,
+      createCtx(),
+    );
+
+    expect(result.content[0].text).toBe("Reasoning effort set to low");
+    expect(pi.setThinkingLevel).toHaveBeenCalledWith("low");
   });
 
   test("persistent tool call sets baseline and does not reset on agent_end", async () => {

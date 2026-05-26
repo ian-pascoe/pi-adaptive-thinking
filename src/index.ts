@@ -24,6 +24,8 @@ type RuntimeState = {
   currentLevel?: PiThinkingLevel;
   persistedLevel?: PiThinkingLevel;
   temporaryResetLevel?: PiThinkingLevel;
+  lastToolCallWasReasoningTool?: boolean;
+  currentReasoningToolCallIsBackToBack?: boolean;
 };
 
 const ToolParameters = Type.Object(
@@ -172,7 +174,9 @@ const formatGuidance = (
     (currentLevel ? `Current reasoning effort level: ${currentLevel}. ` : "") +
     `Valid reasoning effort levels for this session: ${validLevels.join(", ")}. ` +
     `To change your reasoning effort, use the \`${config.toolName}\` tool with one of the valid levels. ` +
-    "Only call it when the task complexity justifies changing levels."
+    "Only call it when the task complexity justifies changing levels. " +
+    `Do not call ${config.toolName} if the current reasoning effort already matches the target level. ` +
+    `Do not call ${config.toolName} twice in a row; reassess only after new evidence from other tool calls or user input.`
   );
 };
 
@@ -189,10 +193,26 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
       runtime.currentLevel = event.level;
     });
 
+    pi.on("tool_call", async (event) => {
+      const state = runtime;
+      if (!state) return;
+
+      if (event.toolName === state.config.toolName) {
+        state.currentReasoningToolCallIsBackToBack = state.lastToolCallWasReasoningTool ?? false;
+        state.lastToolCallWasReasoningTool = true;
+      } else {
+        state.currentReasoningToolCallIsBackToBack = false;
+        state.lastToolCallWasReasoningTool = false;
+      }
+    });
+
     pi.on("before_agent_start", async (event, ctx) => beforeAgentStart(event, ctx));
 
     pi.on("agent_end", async (_event, ctx) => {
       await resetTemporaryLevel(ctx);
+      if (!runtime) return;
+      runtime.lastToolCallWasReasoningTool = false;
+      runtime.currentReasoningToolCallIsBackToBack = false;
     });
   };
 
@@ -202,6 +222,9 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
   ): Promise<BeforeAgentStartEventResult> => {
     const state = runtime;
     if (!state) return { systemPrompt: event.systemPrompt };
+
+    state.lastToolCallWasReasoningTool = false;
+    state.currentReasoningToolCallIsBackToBack = false;
 
     const currentLevel = state.currentLevel ?? pi.getThinkingLevel();
     if (isThinkingLevel(currentLevel)) state.currentLevel = currentLevel;
@@ -275,6 +298,16 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
 
         const persist = params.persist ?? false;
         const currentLevel = state.currentLevel ?? pi.getThinkingLevel();
+        if (currentLevel === level) {
+          return textResult(`Reasoning effort is already ${level}; no change made.`);
+        }
+
+        if (state.currentReasoningToolCallIsBackToBack) {
+          return textResult(
+            `Reasoning effort change skipped because the previous tool call was also ${state.config.toolName}. Reassess after another tool call or new user input.`,
+          );
+        }
+
         const resetLevel =
           state.persistedLevel ?? (isThinkingLevel(currentLevel) ? currentLevel : undefined);
 
