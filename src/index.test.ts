@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { describe, expect, test, vi } from "vitest";
 import adaptiveThinking from "./index";
 
@@ -79,6 +82,49 @@ describe("adaptiveThinking extension", () => {
     vi.mocked(pi.setThinkingLevel).mockClear();
     await emit("agent_end", {}, createCtx());
     expect(pi.setThinkingLevel).not.toHaveBeenCalled();
+  });
+
+  test("persistent tool call does not update global default settings", async () => {
+    const agentDir = join(tmpdir(), `pi-adaptive-thinking-${Date.now()}`);
+    const settingsPath = join(agentDir, "settings.json");
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({ defaultThinkingLevel: "medium", theme: "dark" }));
+
+    const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+
+    try {
+      const { pi, tools, emit } = createPi();
+      vi.mocked(pi.setThinkingLevel).mockImplementation((level: string) => {
+        const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+        settings.defaultThinkingLevel = level;
+        settings.theme = "light";
+        writeFileSync(settingsPath, JSON.stringify(settings));
+      });
+
+      adaptiveThinking(pi as never);
+      await emit("session_start", { reason: "startup" }, createCtx());
+
+      await tools[0].execute(
+        "tool-call",
+        { level: "high", persist: true },
+        undefined,
+        undefined,
+        createCtx(),
+      );
+
+      expect(JSON.parse(readFileSync(settingsPath, "utf-8"))).toEqual({
+        defaultThinkingLevel: "medium",
+        theme: "light",
+      });
+    } finally {
+      if (previousAgentDir === undefined) {
+        delete process.env.PI_CODING_AGENT_DIR;
+      } else {
+        process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+      }
+      if (existsSync(agentDir)) rmSync(agentDir, { recursive: true, force: true });
+    }
   });
 
   test("temporary tool call restores previous level on agent_end", async () => {

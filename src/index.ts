@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+import lockfile from "proper-lockfile";
 import type {
   AgentToolResult,
   BeforeAgentStartEvent,
@@ -48,6 +52,96 @@ const textResult = (text: string): AgentToolResult<undefined> => ({
 });
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const agentDir = () => process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+
+const globalSettingsPath = () => join(agentDir(), "settings.json");
+
+const sleepSync = (milliseconds: number) => {
+  const end = Date.now() + milliseconds;
+  while (Date.now() < end) {
+    // Synchronous ExtensionAPI methods require a synchronous retry loop.
+  }
+};
+
+const acquireSettingsLock = (lockPath: string) => {
+  const maxAttempts = 100;
+  const delayMs = 20;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return lockfile.lockSync(lockPath, { realpath: false });
+    } catch (error) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+      if (code !== "ELOCKED" || attempt === maxAttempts) throw error;
+      sleepSync(delayMs);
+    }
+  }
+
+  throw new Error(`Failed to acquire settings lock: ${lockPath}`);
+};
+
+const withSettingsLock = <T>(settingsPath: string, fn: () => T): T => {
+  mkdirSync(join(settingsPath, ".."), { recursive: true });
+  const lockPath = `${settingsPath}.adaptive-thinking`;
+  if (!existsSync(lockPath)) writeFileSync(lockPath, "");
+
+  const release = acquireSettingsLock(lockPath);
+
+  try {
+    return fn();
+  } finally {
+    release();
+  }
+};
+
+const readDefaultThinkingLevel = (settingsPath: string): PiThinkingLevel | undefined => {
+  if (!existsSync(settingsPath)) return undefined;
+
+  try {
+    const parsed = JSON.parse(readFileSync(settingsPath, "utf-8")) as {
+      defaultThinkingLevel?: unknown;
+    };
+    return typeof parsed.defaultThinkingLevel === "string" &&
+      isThinkingLevel(parsed.defaultThinkingLevel)
+      ? parsed.defaultThinkingLevel
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const restoreDefaultThinkingLevel = (
+  settingsPath: string,
+  previousDefaultThinkingLevel: PiThinkingLevel | undefined,
+) => {
+  if (!existsSync(settingsPath)) return;
+
+  try {
+    const settings = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+    if (previousDefaultThinkingLevel === undefined) {
+      delete settings.defaultThinkingLevel;
+    } else {
+      settings.defaultThinkingLevel = previousDefaultThinkingLevel;
+    }
+    writeFileSync(settingsPath, JSON.stringify(settings, undefined, 2) + "\n");
+  } catch {
+    return;
+  }
+};
+
+const withSessionOnlyThinkingLevelChange = (changeThinkingLevel: () => void) => {
+  const settingsPath = globalSettingsPath();
+
+  return withSettingsLock(settingsPath, () => {
+    const previousDefaultThinkingLevel = readDefaultThinkingLevel(settingsPath);
+
+    changeThinkingLevel();
+
+    restoreDefaultThinkingLevel(settingsPath, previousDefaultThinkingLevel);
+  });
+};
 
 const notify = (
   ctx: ExtensionContext,
@@ -127,7 +221,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
     if (!state || !resetLevel) return;
 
     try {
-      pi.setThinkingLevel(resetLevel);
+      withSessionOnlyThinkingLevelChange(() => pi.setThinkingLevel(resetLevel));
       state.currentLevel = resetLevel;
       delete state.temporaryResetLevel;
     } catch (error) {
@@ -185,7 +279,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
           state.persistedLevel ?? (isThinkingLevel(currentLevel) ? currentLevel : undefined);
 
         try {
-          pi.setThinkingLevel(level);
+          withSessionOnlyThinkingLevelChange(() => pi.setThinkingLevel(level));
         } catch (error) {
           return textResult(`Failed to set reasoning effort: ${errorMessage(error)}`);
         }
