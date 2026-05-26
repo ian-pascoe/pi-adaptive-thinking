@@ -1,0 +1,25 @@
+{
+  "changesets": [
+    {
+      "releases": [
+        {
+          "name": "pi-adaptive-thinking",
+          "type": "minor"
+        }
+      ],
+      "summary": "Add the initial Pi adaptive thinking extension with configurable reasoning-effort tool, TypeBox config validation, documentation, CI, and Changesets release automation.",
+      "id": "fresh-timers-laugh"
+    }
+  ],
+  "releases": [
+    {
+      "name": "pi-adaptive-thinking",
+      "type": "minor",
+      "oldVersion": "0.0.0",
+      "changesets": [
+        "fresh-timers-laugh"
+      ],
+      "newVersion": "0.1.0"
+    }
+  ]
+}
