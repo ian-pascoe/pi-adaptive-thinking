@@ -16,5 +16,5 @@
 
 ## Local State
 
-- `.brv/` is ByteRover local state and must not be committed.
+- `.brv/` is ByteRover local state and must be committed in a separate `docs:` commit.
 - `dist/` is generated output and must not be edited directly.

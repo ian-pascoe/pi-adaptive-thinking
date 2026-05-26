@@ -1,6 +1,5 @@
 node_modules/
 dist/
-.brv/
 .worktrees/
 .DS_Store
 *.log
