@@ -42,18 +42,18 @@
     "build:js": "rolldown -c",
     "build:types": "tsgo --project tsconfig.build.json --emitDeclarationOnly",
     "build:watch": "rolldown -c -w",
-    "clean": "rm -rf dist",
     "changeset": "changeset",
+    "clean": "rm -rf dist",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "prepare": "husky",
     "release": "pnpm run build && changeset publish",
     "test": "vitest run",
     "typecheck": "tsgo --noEmit",
     "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
-    "version-packages": "changeset version",
-    "prepare": "husky"
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",
