@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+import lockfile from "proper-lockfile";
 import type {
   AgentToolResult,
   BeforeAgentStartEvent,
@@ -20,6 +24,8 @@ type RuntimeState = {
   currentLevel?: PiThinkingLevel;
   persistedLevel?: PiThinkingLevel;
   temporaryResetLevel?: PiThinkingLevel;
+  lastToolCallWasReasoningTool?: boolean;
+  reasoningToolCallBackToBackById: Map<string, boolean>;
 };
 
 const ToolParameters = Type.Object(
@@ -27,7 +33,7 @@ const ToolParameters = Type.Object(
     level: Type.String({
       minLength: 1,
       description:
-        "The level of reasoning effort to apply. Higher levels may improve hard-task quality but may take more time and resources.",
+        "The Pi thinking level to apply. Higher levels may improve hard-task quality but may take more time and resources.",
     }),
     persist: Type.Optional(
       Type.Boolean({
@@ -48,6 +54,96 @@ const textResult = (text: string): AgentToolResult<undefined> => ({
 });
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const agentDir = () => process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+
+const globalSettingsPath = () => join(agentDir(), "settings.json");
+
+const sleepSync = (milliseconds: number) => {
+  const end = Date.now() + milliseconds;
+  while (Date.now() < end) {
+    // Synchronous ExtensionAPI methods require a synchronous retry loop.
+  }
+};
+
+const acquireSettingsLock = (lockPath: string) => {
+  const maxAttempts = 100;
+  const delayMs = 20;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return lockfile.lockSync(lockPath, { realpath: false });
+    } catch (error) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+      if (code !== "ELOCKED" || attempt === maxAttempts) throw error;
+      sleepSync(delayMs);
+    }
+  }
+
+  throw new Error(`Failed to acquire settings lock: ${lockPath}`);
+};
+
+const withSettingsLock = <T>(settingsPath: string, fn: () => T): T => {
+  mkdirSync(join(settingsPath, ".."), { recursive: true });
+  const lockPath = `${settingsPath}.adaptive-thinking`;
+  if (!existsSync(lockPath)) writeFileSync(lockPath, "");
+
+  const release = acquireSettingsLock(lockPath);
+
+  try {
+    return fn();
+  } finally {
+    release();
+  }
+};
+
+const readDefaultThinkingLevel = (settingsPath: string): PiThinkingLevel | undefined => {
+  if (!existsSync(settingsPath)) return undefined;
+
+  try {
+    const parsed = JSON.parse(readFileSync(settingsPath, "utf-8")) as {
+      defaultThinkingLevel?: unknown;
+    };
+    return typeof parsed.defaultThinkingLevel === "string" &&
+      isThinkingLevel(parsed.defaultThinkingLevel)
+      ? parsed.defaultThinkingLevel
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const restoreDefaultThinkingLevel = (
+  settingsPath: string,
+  previousDefaultThinkingLevel: PiThinkingLevel | undefined,
+) => {
+  if (!existsSync(settingsPath)) return;
+
+  try {
+    const settings = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+    if (previousDefaultThinkingLevel === undefined) {
+      delete settings.defaultThinkingLevel;
+    } else {
+      settings.defaultThinkingLevel = previousDefaultThinkingLevel;
+    }
+    writeFileSync(settingsPath, JSON.stringify(settings, undefined, 2) + "\n");
+  } catch {
+    return;
+  }
+};
+
+const withSessionOnlyThinkingLevelChange = (changeThinkingLevel: () => void) => {
+  const settingsPath = globalSettingsPath();
+
+  return withSettingsLock(settingsPath, () => {
+    const previousDefaultThinkingLevel = readDefaultThinkingLevel(settingsPath);
+
+    changeThinkingLevel();
+
+    restoreDefaultThinkingLevel(settingsPath, previousDefaultThinkingLevel);
+  });
+};
 
 const notify = (
   ctx: ExtensionContext,
@@ -75,10 +171,12 @@ const formatGuidance = (
   return (
     config.systemPrompt.trim() +
     " " +
-    (currentLevel ? `Current reasoning effort level: ${currentLevel}. ` : "") +
-    `Valid reasoning effort levels for this session: ${validLevels.join(", ")}. ` +
-    `To change your reasoning effort, use the \`${config.toolName}\` tool with one of the valid levels. ` +
-    "Only call it when the task complexity justifies changing levels."
+    (currentLevel ? `Current thinking level: ${currentLevel}. ` : "") +
+    `Valid thinking levels for this session: ${validLevels.join(", ")}. ` +
+    `To change the thinking level, use the \`${config.toolName}\` tool with one of the valid levels. ` +
+    "Only call it when the task complexity justifies changing levels. " +
+    `Do not call ${config.toolName} if the current thinking level already matches the target level. ` +
+    `Do not call ${config.toolName} twice in a row; reassess only after new evidence from other tool calls or user input.`
   );
 };
 
@@ -95,10 +193,28 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
       runtime.currentLevel = event.level;
     });
 
+    pi.on("tool_call", async (event) => {
+      const state = runtime;
+      if (!state) return;
+
+      if (event.toolName === state.config.toolName) {
+        state.reasoningToolCallBackToBackById.set(
+          event.toolCallId,
+          state.lastToolCallWasReasoningTool ?? false,
+        );
+        state.lastToolCallWasReasoningTool = true;
+      } else {
+        state.lastToolCallWasReasoningTool = false;
+      }
+    });
+
     pi.on("before_agent_start", async (event, ctx) => beforeAgentStart(event, ctx));
 
     pi.on("agent_end", async (_event, ctx) => {
       await resetTemporaryLevel(ctx);
+      if (!runtime) return;
+      runtime.lastToolCallWasReasoningTool = false;
+      runtime.reasoningToolCallBackToBackById.clear();
     });
   };
 
@@ -108,6 +224,9 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
   ): Promise<BeforeAgentStartEventResult> => {
     const state = runtime;
     if (!state) return { systemPrompt: event.systemPrompt };
+
+    state.lastToolCallWasReasoningTool = false;
+    state.reasoningToolCallBackToBackById.clear();
 
     const currentLevel = state.currentLevel ?? pi.getThinkingLevel();
     if (isThinkingLevel(currentLevel)) state.currentLevel = currentLevel;
@@ -127,16 +246,11 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
     if (!state || !resetLevel) return;
 
     try {
-      pi.setThinkingLevel(resetLevel);
+      withSessionOnlyThinkingLevelChange(() => pi.setThinkingLevel(resetLevel));
       state.currentLevel = resetLevel;
       delete state.temporaryResetLevel;
     } catch (error) {
-      notify(
-        ctx,
-        "error",
-        `Failed to reset reasoning effort: ${errorMessage(error)}`,
-        state.config,
-      );
+      notify(ctx, "error", `Failed to reset thinking level: ${errorMessage(error)}`, state.config);
     }
   };
 
@@ -155,19 +269,19 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
     }
 
     const initialLevel = pi.getThinkingLevel();
-    runtime = { config };
+    runtime = { config, reasoningToolCallBackToBackById: new Map() };
     if (isThinkingLevel(initialLevel)) runtime.currentLevel = initialLevel;
 
     pi.registerTool({
       name: config.toolName,
-      label: "Set Reasoning Effort",
+      label: "Set Thinking Level",
       description: config.toolDescription,
-      promptSnippet: "Set the current reasoning effort / thinking level.",
+      promptSnippet: "Set the current Pi thinking level.",
       promptGuidelines: [
-        `Use ${config.toolName} to change reasoning effort when task complexity justifies a different thinking level.`,
+        `Use ${config.toolName} to change the thinking level when task complexity justifies a different level.`,
       ],
       parameters: ToolParameters,
-      execute: async (_toolCallId, params: ToolParameters, _signal, _onUpdate, ctx) => {
+      execute: async (toolCallId, params: ToolParameters, _signal, _onUpdate, ctx) => {
         const state = runtime;
         if (!state) return textResult("Adaptive Thinking is not enabled for this session.");
 
@@ -175,19 +289,29 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
         const validLevels = resolveSupportedThinkingLevels(ctx.model);
         if (!isThinkingLevel(level) || !validLevels.includes(level)) {
           return textResult(
-            `Invalid reasoning effort level: ${level}. Valid levels: ${validLevels.join(", ")}.`,
+            `Invalid thinking level: ${level}. Valid levels: ${validLevels.join(", ")}.`,
           );
         }
 
         const persist = params.persist ?? false;
         const currentLevel = state.currentLevel ?? pi.getThinkingLevel();
+        if (currentLevel === level) {
+          return textResult(`Thinking level is already ${level}; no change made.`);
+        }
+
+        if (state.reasoningToolCallBackToBackById.get(toolCallId) ?? false) {
+          return textResult(
+            `Thinking level change skipped because the previous tool call was also ${state.config.toolName}. Reassess after another tool call or new user input.`,
+          );
+        }
+
         const resetLevel =
           state.persistedLevel ?? (isThinkingLevel(currentLevel) ? currentLevel : undefined);
 
         try {
-          pi.setThinkingLevel(level);
+          withSessionOnlyThinkingLevelChange(() => pi.setThinkingLevel(level));
         } catch (error) {
-          return textResult(`Failed to set reasoning effort: ${errorMessage(error)}`);
+          return textResult(`Failed to set thinking level: ${errorMessage(error)}`);
         }
 
         state.currentLevel = level;
@@ -200,7 +324,7 @@ export default function adaptiveThinking(pi: ExtensionAPI) {
           delete state.temporaryResetLevel;
         }
 
-        return textResult(`Reasoning effort set to ${level}`);
+        return textResult(`Thinking level set to ${level}`);
       },
     });
 

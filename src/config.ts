@@ -2,7 +2,7 @@ import { Type, type Static } from "typebox";
 import { Parse } from "typebox/schema";
 
 export const defaultSystemPrompt =
-  "You MUST manage reasoning effort actively. " +
+  "You MUST manage thinking level actively. " +
   "Lower it before trivial or routine turns; raise it for ambiguity, debugging, risky changes, or multi-step synthesis. " +
   "Reassess at turn start, after meaningful new evidence, and when the task shifts. " +
   "NEVER leave the current level unchanged by inertia, and NEVER reply to a trivial turn before considering a downshift.";
@@ -10,8 +10,8 @@ export const defaultSystemPrompt =
 export const configDefaults = {
   enabled: true,
   quiet: false,
-  toolName: "set_reasoning_effort",
-  toolDescription: "Set your reasoning effort",
+  toolName: "set_thinking_level",
+  toolDescription: "Set your thinking level",
   systemPrompt: defaultSystemPrompt,
 };
 

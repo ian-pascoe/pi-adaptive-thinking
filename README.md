@@ -6,7 +6,7 @@ Bring adaptive reasoning-effort control to Pi agents.
 
 </div>
 
-`pi-adaptive-thinking` is a Pi extension that lets the agent change Pi's thinking level through a tool named `set_reasoning_effort`.
+`pi-adaptive-thinking` is a Pi extension that lets the agent change Pi's thinking level through a tool named `set_thinking_level`.
 
 It mirrors the user-facing behavior of `opencode-adaptive-thinking` while using Pi-native APIs: `pi.getThinkingLevel()`, `pi.setThinkingLevel()`, and `thinking_level_select`.
 
@@ -37,7 +37,7 @@ Temporary changes:
 { "level": "high", "persist": false }
 ```
 
-This changes reasoning effort for the current agent turn and restores the prior/baseline level when the turn ends.
+This changes thinking level for the current agent turn and restores the prior/baseline level when the turn ends.
 
 Persistent changes:
 
@@ -61,9 +61,9 @@ Project configuration takes precedence over global configuration.
 {
   "enabled": true,
   "quiet": false,
-  "toolName": "set_reasoning_effort",
-  "toolDescription": "Set your reasoning effort",
-  "systemPrompt": "You MUST manage reasoning effort actively. Lower it before trivial or routine turns; raise it for ambiguity, debugging, risky changes, or multi-step synthesis. Reassess at turn start, after meaningful new evidence, and when the task shifts. NEVER leave the current level unchanged by inertia, and NEVER reply to a trivial turn before considering a downshift."
+  "toolName": "set_thinking_level",
+  "toolDescription": "Set your thinking level",
+  "systemPrompt": "You MUST manage thinking level actively. Lower it before trivial or routine turns; raise it for ambiguity, debugging, risky changes, or multi-step synthesis. Reassess at turn start, after meaningful new evidence, and when the task shifts. NEVER leave the current level unchanged by inertia, and NEVER reply to a trivial turn before considering a downshift."
 }
 ```
 
